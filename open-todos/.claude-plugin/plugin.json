@@ -1,0 +1,6 @@
+{
+  "name": "open-todos",
+  "version": "0.1.0",
+  "description": "Side pane listing unfinished and in-progress todos from all Claude Code sessions, grouped by project",
+  "types": "./types/index.d.ts"
+}
