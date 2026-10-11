@@ -1,25 +1,59 @@
 # open-todos
 
-Claude Desktop（Code 分頁）側欄面板：列出你所有 Claude Code session 中未完成與進行中的待辦，依專案分組。輸入 `/todos` 開啟與重新整理。Claude 建立或更新待辦、每個回合結束、送出 prompt 時會自動更新，另外每 20 秒檢查一次其他 session 的變動。
+A side pane for Claude Desktop (Code tab) that lists the unfinished and in-progress todos from all your Claude Code sessions, grouped by project. Type `/todos` to open and refresh it. It updates automatically when Claude creates or updates a todo, at the end of each turn, and when you send a prompt, and checks other sessions for changes every 20 seconds. Optionally syncs with Google Tasks.
 
-## 安裝
-- macOS：`bash install.sh`
-- Windows：在 PowerShell 執行 `powershell -ExecutionPolicy Bypass -File install.ps1`
+## Install
+- macOS / Linux: `bash install.sh`
+- Windows: in PowerShell, `powershell -ExecutionPolicy Bypass -File install.ps1`
 
-完成後完全關閉並重開 Claude Desktop。腳本會備份並合併 `~/.claude/settings.json`（只在 `env` 內新增或補上兩個變數；已有的 `CLAUDE_CODE_PLUGIN_DIRS`，例如 token-usage，會保留）。
+Then fully quit and reopen Claude Desktop. The script backs up and merges `~/.claude/settings.json` (it only adds two variables under `env`; an existing `CLAUDE_CODE_PLUGIN_DIRS`, e.g. token-usage, is kept).
 
-## 需求
-- 支援 mod 功能的新版 Claude Code / Claude Desktop（開發時為 2.1.290）
-- 電腦上有 `node`（掃描程式用它讀 session 紀錄）
-- 待辦：只會顯示用過 Claude 待辦工具（TaskCreate / TodoWrite）建立的項目
-- 執行中：最近 5 分鐘內有寫入紀錄的 session 會標示「執行中」，即使它沒有待辦，並顯示最後一則 prompt 和正在使用的工具
+## Requirements
+- A recent Claude Code / Claude Desktop with mod support (developed on 2.1.290)
+- `node` on your machine (the scanner uses it to read session records)
+- Todos: only items created with Claude's todo tools (TaskCreate / TodoWrite) are shown
+- Running: a session that wrote to its record in the last 5 minutes is marked "running", even without todos, with its last prompt and current tool
 
-## 隱藏不想看的專案
-專案資料夾已經刪除的專案會自動略過（Claude 的 session 紀錄不會隨資料夾一起刪除）。claude-mem 外掛在背景開的 `observer-sessions` 也會自動略過。其他想隱藏的：
-在 `~/.claude/open-todos-ignore.txt` 一行寫一個要略過的項目（專案名稱、專案資料夾路徑，或 8 碼 session 編號），`#` 開頭是註解。不會動到 session 的紀錄檔，刪掉那一行就會重新出現。
+## Hiding projects
+Projects whose folder has been deleted are skipped automatically (Claude keeps session records after the folder is gone), as are the background `observer-sessions` of the claude-mem plugin. To hide others, put one entry per line in `~/.claude/open-todos-ignore.txt`: a project name, a project folder path, or an 8-character session id. Lines starting with `#` are comments. Session records are not touched; delete the line and the item comes back.
 
-## 更新
-重新執行一次安裝腳本即可。
+## Google Tasks sync (optional)
+Once set up, the pane syncs with your Google account at most every 2 minutes:
+- Open todos are pushed to Google Tasks, one task list per project.
+- Completing or deleting a task in Google hides it in the pane; renaming it shows the new title.
+- Tasks added in Google, and your own Google lists (e.g. "My Tasks"), appear in the pane as extra groups.
+- Todos finished by Claude are ticked off in Google.
 
-## 解除安裝
-刪除 `~/.claude/mods/open-todos`，並從 `settings.json` 的 `env.CLAUDE_CODE_PLUGIN_DIRS` 移除該路徑。
+Claude's own session todo lists are never changed: a task ticked off in Google is only hidden in the pane. The "in progress" state is not synced (Google Tasks has none).
+
+### Setup (once)
+1. Create a Google Cloud project: https://console.cloud.google.com/projectcreate
+2. Enable the Tasks API: https://console.cloud.google.com/apis/library/tasks.googleapis.com
+3. Configure the OAuth consent screen: https://console.cloud.google.com/auth/overview
+   User type "External". Under "Audience", add your Gmail address as a test user.
+4. Create a client: https://console.cloud.google.com/auth/clients
+   Application type "Desktop app". Download the JSON and save it on this machine, e.g. as `~/.claude/open-todos-gtasks-client.json`.
+5. Sign in:
+   ```
+   node ~/.claude/mods/open-todos/hooks/gtasks-setup.js ~/.claude/open-todos-gtasks-client.json
+   ```
+   Open the printed URL and sign in. Google warns the app is unverified: choose "Advanced" → "Go to … (unsafe)". If the browser ends on a "can't reach this site" page (e.g. over SSH), paste that page's full URL into the terminal. Keep the command running until it says it is done.
+
+### Renewing the sign-in
+While the app is in "Testing" mode, Google expires the sign-in every 7 days. The pane then shows a red "Google 同步失敗" (Google sync failed) line. Run step 5 again; the client JSON stays valid. Publishing the app to "In production" removes the limit, but Google requires a home page and privacy policy URL for that.
+
+### Files
+| File | Contents |
+| --- | --- |
+| `~/.claude/open-todos-gtasks-client.json` | OAuth client (from step 4) |
+| `~/.claude/open-todos-gtasks-auth.json` | Refresh token (written by the setup script, mode 600) |
+| `~/.claude/open-todos-gtasks.json` | Sync state: task mapping, last error |
+
+To turn sync off, delete `open-todos-gtasks-auth.json` and revoke access at https://myaccount.google.com/permissions.
+
+## Updating
+Run the install script again. The pane runs from the installed copy in `~/.claude/mods/open-todos`, so changes to this repo only take effect after reinstalling.
+
+## Uninstall
+- macOS / Linux: `bash uninstall.sh`. It revokes the Google sign-in, removes the mod and its `settings.json` entry (other mods are kept; a backup is made), and deletes all `~/.claude/open-todos-*` files. Task lists already created in Google Tasks stay in that Google account.
+- Windows: delete `~/.claude/mods/open-todos` and remove its path from `env.CLAUDE_CODE_PLUGIN_DIRS` in `settings.json`.
