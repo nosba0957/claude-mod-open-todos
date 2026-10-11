@@ -13,7 +13,7 @@ const SYNC_MS = 120000
 // new tasks pushed per sync, so a big first push cannot outlast scan.js's 60 s timeout
 const MAX_NEW = 40
 
-const projKey = p => (p.project === '無資料夾' ? p.project : p.cwd)
+const projKey = p => (p.project === 'No folder' ? p.project : p.cwd)
 const itemKey = (s, t) => s.id + '|' + t.subject
 
 function load() {
@@ -136,7 +136,7 @@ async function push(result, st) {
         } else if (added < MAX_NEW) {
           added++
           const list = st.lists[projKey(p)].id
-          const r = await api('POST', `/lists/${list}/tasks`, { title: t.subject, notes: `${s.title || '未命名'} (session ${s.id})` })
+          const r = await api('POST', `/lists/${list}/tasks`, { title: t.subject, notes: `${s.title || 'untitled'} (session ${s.id})` })
           st.tasks[k] = { list, id: r.id, title: t.subject, done: false }
         }
       }

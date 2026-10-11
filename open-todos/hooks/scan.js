@@ -127,9 +127,9 @@ for (const dir of fs.readdirSync(root)) {
 // sessions started without a project folder live in throwaway scratch dirs: show them as one group
 const merged = new Map()
 for (const p of out) {
-  const key = /scratch-workspaces/.test(p.cwd) ? '無資料夾' : p.project + '|' + p.cwd
+  const key = /scratch-workspaces/.test(p.cwd) ? 'No folder' : p.project + '|' + p.cwd
   const m = merged.get(key)
-  if (!m) merged.set(key, { ...p, project: key === '無資料夾' ? key : p.project })
+  if (!m) merged.set(key, { ...p, project: key === 'No folder' ? key : p.project })
   else { m.sessions.push(...p.sessions); m.running.push(...p.running) }
 }
 const result = [...merged.values()]

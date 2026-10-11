@@ -36,10 +36,10 @@ function daysSince(ms: number): number {
 }
 
 function ago(d: number): string {
-  if (d < 1) return '今天'
-  if (d === 1) return '昨天'
-  if (d >= 60) return `${Math.floor(d / 30)} 個月前`
-  return `${d} 天前`
+  if (d < 1) return 'today'
+  if (d === 1) return 'yesterday'
+  if (d >= 60) return `${Math.floor(d / 30)}mo ago`
+  return `${d}d ago`
 }
 
 // done / in-progress / waiting as 10 cells (largest remainder); fewer than 10 tasks get one cell each.
@@ -210,14 +210,14 @@ export const register: Register = on => {
       void update($, expanded, l => (all ? [...without(l, cwd), cwd] : without(l, cwd)))
     }
 
-    const refreshBtn = <Button key="refresh" label="↻ 重新整理" plain dimColor onPress={() => void refresh($)} />
+    const refreshBtn = <Button key="refresh" label="↻ Refresh" plain dimColor onPress={() => void refresh($)} />
 
     if (error !== '') {
       return (
         <Box flexDirection="column" paddingX={1}>
-          <Text bold>無法讀取待辦資料</Text>
+          <Text bold>Could not read todo data</Text>
           <Text dimColor wrap="truncate-end">{error}</Text>
-          <Text dimColor>請確認 ~/.claude 目錄存在且可讀取，再重新開啟面板。</Text>
+          <Text dimColor>Check that ~/.claude exists and is readable, then reopen the pane.</Text>
           {refreshBtn}
         </Box>
       )
@@ -225,8 +225,8 @@ export const register: Register = on => {
     if (raw.length === 0) {
       return (
         <Box flexDirection="column" paddingX={1}>
-          <Text bold>沒有未完成的待辦，也沒有執行中的 session</Text>
-          <Text dimColor>所有 session 的待辦都已完成，或已被排除清單略過。之後 Claude 新增待辦或開始執行時，會顯示在這裡。</Text>
+          <Text bold>No open todos and no running sessions</Text>
+          <Text dimColor>Every session's todos are done or ignored. New todos and running sessions will show up here.</Text>
           {refreshBtn}
         </Box>
       )
@@ -267,11 +267,11 @@ export const register: Register = on => {
         <Box flexShrink={0} marginLeft={1}>{right}</Box>
       </Box>
     )
-    const runLabel = <Text color={RUN} bold>▶ 執行中</Text>
-    const recentLine = (last: string) => <Text dimColor wrap="truncate-end">最近：{last}</Text>
+    const runLabel = <Text color={RUN} bold>▶ running</Text>
+    const recentLine = (last: string) => <Text dimColor wrap="truncate-end">Last: {last}</Text>
     const toolLine = (tool: string) => (
       <Box>
-        <Text dimColor>正在使用 </Text>
+        <Text dimColor>Using </Text>
         {fill(<Text wrap="truncate-end">{tool}</Text>)}
       </Box>
     )
@@ -279,28 +279,28 @@ export const register: Register = on => {
     return (
       <Box flexDirection="column" paddingX={1}>
         <Box gap={2}>
-          {stat('▶', RUN, liveTotal, '執行中')}
-          {stat('◐', WIP, wipTotal, '進行')}
-          {stat('○', FAINT, waitTotal, '待辦')}
+          {stat('▶', RUN, liveTotal, 'running')}
+          {stat('◐', WIP, wipTotal, 'in progress')}
+          {stat('○', FAINT, waitTotal, 'waiting')}
           <Box flexGrow={1} />
           {refreshBtn}
         </Box>
         {gerror !== '' && (
           <Box flexDirection="column" marginTop={1}>
-            <Text color={ROSE} wrap="truncate-end">Google 同步失敗：{gerror}</Text>
+            <Text color={ROSE} wrap="truncate-end">Google sync failed: {gerror}</Text>
             {/invalid_grant|token/.test(gerror) && (
-              <Text dimColor wrap="truncate-end">授權可能已過期（測試模式每 7 天一次），請重跑 hooks/gtasks-setup.js</Text>
+              <Text dimColor wrap="truncate-end">Sign-in may have expired (every 7 days in testing mode): rerun hooks/gtasks-setup.js</Text>
             )}
           </Box>
         )}
         {staleTotal > 0 && (
           <Box marginTop={1}>
             {Svg !== undefined ? (
-              <Svg source={dotSvg(ROSE)} alt="提醒" width={16} height={18} />
+              <Svg source={dotSvg(ROSE)} alt="warning" width={16} height={18} />
             ) : (
               <Text color={ROSE}>• </Text>
             )}
-            {fill(<Text color={ROSE} wrap="truncate-end">{staleTotal} 個 session 超過 {STALE_DAYS} 天沒動</Text>)}
+            {fill(<Text color={ROSE} wrap="truncate-end">{staleTotal} session(s) untouched for over {STALE_DAYS} days</Text>)}
           </Box>
         )}
 
@@ -323,7 +323,7 @@ export const register: Register = on => {
                   </Button>,
                 )}
                 <Box flexShrink={0} marginLeft={1} gap={2}>
-                  <Text dimColor>{count} 項</Text>
+                  <Text dimColor>{count} items</Text>
                   <Text color={stale ? ROSE : undefined} dimColor={!stale}>{ago(newest)}</Text>
                 </Box>
               </Box>
@@ -349,7 +349,7 @@ export const register: Register = on => {
                 )}
                 <Box flexShrink={0} marginLeft={1}>
                   <Button key={`fold:${p.cwd}`} plain dimColor onPress={() => fold(p.cwd)}>
-                    {count > 0 ? `${count} 項 ▾` : '▾'}
+                    {count > 0 ? `${count} items ▾` : '▾'}
                   </Button>
                 </Box>
               </Box>
@@ -373,7 +373,7 @@ export const register: Register = on => {
                   return (
                     <Box flexDirection="column" marginTop={i > 0 ? 1 : 0}>
                       {titleRow(
-                        named ? s.title : `未命名 #${s.id.slice(0, 4)}`,
+                        named ? s.title : `untitled #${s.id.slice(0, 4)}`,
                         !named || (old && !s.running),
                         s.running ? runLabel : <Text color={old ? ROSE : undefined} dimColor={!old}>{ago(d)}</Text>,
                       )}
@@ -384,7 +384,7 @@ export const register: Register = on => {
                           {Svg !== undefined ? (
                             <Svg
                               source={barSvg(s.done, wip, Math.max(0, s.total - s.done - wip), hue, old)}
-                              alt={`完成 ${s.done}/${s.total}`}
+                              alt={`done ${s.done}/${s.total}`}
                               width={96}
                               height={18}
                             />
@@ -411,7 +411,7 @@ export const register: Register = on => {
                         <Box>
                           <Text>    </Text>
                           <Button key={`more:${p.cwd}:${s.id}`} plain dimColor onPress={() => unfold(p.cwd, true)}>
-                            還有 {folded} 項待辦 ▸
+                            {folded} more todos ▸
                           </Button>
                         </Box>
                       )}
@@ -421,21 +421,21 @@ export const register: Register = on => {
                 {hidden > 0 && (
                   <Box marginTop={1}>
                     <Button key={`more:${p.cwd}`} plain dimColor onPress={() => unfold(p.cwd, true)}>
-                      另有 {hidden} 個 session ▸
+                      {hidden} more sessions ▸
                     </Button>
                   </Box>
                 )}
                 {all && (
                   <Box marginTop={1}>
                     <Button key={`less:${p.cwd}`} plain dimColor onPress={() => unfold(p.cwd, false)}>
-                      顯示較少 ▴
+                      Show less ▴
                     </Button>
                   </Box>
                 )}
 
                 {p.running.slice(0, 3).map((r, i, list) => {
                   const named = r.title !== ''
-                  const text = named ? r.title : r.last !== '' ? r.last : `未命名 #${r.id.slice(0, 4)}`
+                  const text = named ? r.title : r.last !== '' ? r.last : `untitled #${r.id.slice(0, 4)}`
                   // one-line entries stack as a tight list; a blank line only separates multi-line blocks
                   const gap = p.sessions.length > 0 ? i === 0 || rich(r) || rich(list[i - 1]) : i > 0 && (rich(r) || rich(list[i - 1]))
                   return (
@@ -448,7 +448,7 @@ export const register: Register = on => {
                 })}
                 {p.running.length > 3 && (
                   <Box marginTop={rich(p.running[2]) ? 1 : 0}>
-                    <Text dimColor>另有 {p.running.length - 3} 個執行中</Text>
+                    <Text dimColor>{p.running.length - 3} more running</Text>
                   </Box>
                 )}
               </Box>

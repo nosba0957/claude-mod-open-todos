@@ -25,6 +25,6 @@ test('shows a Google sync failure reported by scan.js', async ($, on) => {
   on('process.run', async () => ({ value: { exitCode: 0, stdout: JSON.stringify(list), stderr: 'google tasks: Error: token: Token has been expired or revoked.\n' } }) as any)
   const ui = await $.ui.mount({ plugin: 'open-todos', surface: 'terminal', component: 'Pane', requestId: 'open-todos', props: {}, viewport: { columns: 120, rows: 40 } })
   await ui.press({ key: 'refresh' })
-  expect(await ui.find({ text: 'Google 同步失敗' })).toBeDefined()
+  expect(await ui.find({ text: 'Google sync failed' })).toBeDefined()
   expect(await ui.find({ text: 'task one' })).toBeDefined()
 })

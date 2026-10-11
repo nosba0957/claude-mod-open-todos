@@ -40,7 +40,7 @@ Claude's own session todo lists are never changed: a task ticked off in Google i
    Open the printed URL and sign in. Google warns the app is unverified: choose "Advanced" → "Go to … (unsafe)". If the browser ends on a "can't reach this site" page (e.g. over SSH), paste that page's full URL into the terminal. Keep the command running until it says it is done.
 
 ### Renewing the sign-in
-While the app is in "Testing" mode, Google expires the sign-in every 7 days. The pane then shows a red "Google 同步失敗" (Google sync failed) line. Run step 5 again; the client JSON stays valid. Publishing the app to "In production" removes the limit, but Google requires a home page and privacy policy URL for that.
+While the app is in "Testing" mode, Google expires the sign-in every 7 days. The pane then shows a red "Google sync failed" line. Run step 5 again; the client JSON stays valid. Publishing the app to "In production" removes the limit, but Google requires a home page and privacy policy URL for that.
 
 ### Files
 | File | Contents |
