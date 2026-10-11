@@ -8,6 +8,12 @@ import type { TodoProject, TodoSession } from '../types'
 const PANE = 'open-todos'
 const state = atom({ plugin: 'open-todos', key: 'projects' } as const, [] as TodoProject[])
 const err = atom({ plugin: 'open-todos', key: 'error' } as const, '')
+// last Google Tasks sync failure, reported by scan.js on stderr; '' when fine or sync is off
+const gerr = atom({ plugin: 'open-todos', key: 'gerror' } as const, '')
+// Mouse folding, keyed by project cwd: collapsed = body hidden, expanded = every session and item shown.
+const collapsed = atom({ plugin: 'open-todos', key: 'collapsed' } as const, [] as string[])
+const expanded = atom({ plugin: 'open-todos', key: 'expanded' } as const, [] as string[])
+const without = (list: string[], x: string) => list.filter(y => y !== x)
 
 // Soft palette, tuned for dark themes (Tailwind "300" level, a touch desaturated). Cool hues identify projects;
 // the warm/green/rose accents are reserved for status. Light themes get lower contrast: swap these values there.
@@ -138,6 +144,7 @@ async function refresh($: any) {
       await update($, state, () => JSON.parse(r.stdout))
     }
     await update($, err, () => '')
+    await update($, gerr, () => r.stderr.match(/^google tasks: (.*)$/m)?.[1] ?? '')
   } catch (x) {
     await update($, err, () => String(x))
   } finally {
@@ -187,10 +194,23 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const ui = $.ui.resolve(e)
-    const { Box, Text } = ui
+    const { Box, Text, Button } = ui
     const Svg = 'Svg' in ui ? ui.Svg : undefined
     const raw = await read($, state)
     const error = await read($, err)
+    const gerror = await read($, gerr)
+    const shut = await read($, collapsed)
+    const wide = await read($, expanded)
+    const fold = (cwd: string) => {
+      void update($, collapsed, l => [...without(l, cwd), cwd])
+      void update($, expanded, l => without(l, cwd))
+    }
+    const unfold = (cwd: string, all: boolean) => {
+      void update($, collapsed, l => without(l, cwd))
+      void update($, expanded, l => (all ? [...without(l, cwd), cwd] : without(l, cwd)))
+    }
+
+    const refreshBtn = <Button key="refresh" label="↻ 重新整理" plain dimColor onPress={() => void refresh($)} />
 
     if (error !== '') {
       return (
@@ -198,6 +218,7 @@ export const register: Register = on => {
           <Text bold>無法讀取待辦資料</Text>
           <Text dimColor wrap="truncate-end">{error}</Text>
           <Text dimColor>請確認 ~/.claude 目錄存在且可讀取，再重新開啟面板。</Text>
+          {refreshBtn}
         </Box>
       )
     }
@@ -206,6 +227,7 @@ export const register: Register = on => {
         <Box flexDirection="column" paddingX={1}>
           <Text bold>沒有未完成的待辦，也沒有執行中的 session</Text>
           <Text dimColor>所有 session 的待辦都已完成，或已被排除清單略過。之後 Claude 新增待辦或開始執行時，會顯示在這裡。</Text>
+          {refreshBtn}
         </Box>
       )
     }
@@ -260,7 +282,17 @@ export const register: Register = on => {
           {stat('▶', RUN, liveTotal, '執行中')}
           {stat('◐', WIP, wipTotal, '進行')}
           {stat('○', FAINT, waitTotal, '待辦')}
+          <Box flexGrow={1} />
+          {refreshBtn}
         </Box>
+        {gerror !== '' && (
+          <Box flexDirection="column" marginTop={1}>
+            <Text color={ROSE} wrap="truncate-end">Google 同步失敗：{gerror}</Text>
+            {/invalid_grant|token/.test(gerror) && (
+              <Text dimColor wrap="truncate-end">授權可能已過期（測試模式每 7 天一次），請重跑 hooks/gtasks-setup.js</Text>
+            )}
+          </Box>
+        )}
         {staleTotal > 0 && (
           <Box marginTop={1}>
             {Svg !== undefined ? (
@@ -278,20 +310,27 @@ export const register: Register = on => {
           const newest = daysSince(p.sessions.length > 0 ? p.sessions[0].mtime : p.running[0].mtime)
           const hasWip = p.sessions.some(s => wipCount(s) > 0)
 
-          if (many && !hasWip && live(p) === 0 && newest > STALE_DAYS) {
+          const autoFold = many && !hasWip && live(p) === 0 && newest > STALE_DAYS
+          const all = wide.includes(p.cwd)
+          if (shut.includes(p.cwd) || (autoFold && !all)) {
+            const stale = newest > STALE_DAYS
             return (
               <Box marginTop={1}>
-                <Box width={1} flexShrink={0} backgroundColor={ROSE} marginRight={1} />
-                {fill(<Text wrap="truncate-end">{p.project}</Text>)}
+                <Box width={1} flexShrink={0} backgroundColor={stale ? ROSE : hue} marginRight={1} />
+                {fill(
+                  <Button key={`open:${p.cwd}`} plain onPress={() => unfold(p.cwd, autoFold)}>
+                    ▸ {p.project}
+                  </Button>,
+                )}
                 <Box flexShrink={0} marginLeft={1} gap={2}>
                   <Text dimColor>{count} 項</Text>
-                  <Text color={ROSE}>{ago(newest)}</Text>
+                  <Text color={stale ? ROSE : undefined} dimColor={!stale}>{ago(newest)}</Text>
                 </Box>
               </Box>
             )
           }
 
-          const cap = many ? 2 : 3
+          const cap = all ? Infinity : many ? 2 : 3
           const shown = p.sessions.slice(0, cap)
           const hidden = p.sessions.length - shown.length
           const heading = titleSvg(p.project, hue)
@@ -308,11 +347,11 @@ export const register: Register = on => {
                     <Text bold color={hue} wrap="truncate-end">{p.project}</Text>
                   ),
                 )}
-                {count > 0 && (
-                  <Box flexShrink={0} marginLeft={1}>
-                    <Text dimColor>{count} 項</Text>
-                  </Box>
-                )}
+                <Box flexShrink={0} marginLeft={1}>
+                  <Button key={`fold:${p.cwd}`} plain dimColor onPress={() => fold(p.cwd)}>
+                    {count > 0 ? `${count} 項 ▾` : '▾'}
+                  </Button>
+                </Box>
               </Box>
               <Box>
               <Box width={1} flexShrink={0} backgroundColor={hue} />
@@ -327,7 +366,7 @@ export const register: Register = on => {
                   const sorted = [...s.items].sort(
                     (a, b) => Number(b.status === 'in_progress') - Number(a.status === 'in_progress'),
                   )
-                  const rows = sorted.slice(0, Math.min(6, Math.max(itemCap, wip)))
+                  const rows = all ? sorted : sorted.slice(0, Math.min(6, Math.max(itemCap, wip)))
                   const folded = sorted.length - rows.length
                   const named = s.title !== ''
 
@@ -368,13 +407,29 @@ export const register: Register = on => {
                           {fill(<Text bold={t.status === 'in_progress'} wrap="truncate-end">{t.subject}</Text>)}
                         </Box>
                       ))}
-                      {folded > 0 && <Text dimColor>    還有 {folded} 項待辦</Text>}
+                      {folded > 0 && (
+                        <Box>
+                          <Text>    </Text>
+                          <Button key={`more:${p.cwd}:${s.id}`} plain dimColor onPress={() => unfold(p.cwd, true)}>
+                            還有 {folded} 項待辦 ▸
+                          </Button>
+                        </Box>
+                      )}
                     </Box>
                   )
                 })}
                 {hidden > 0 && (
                   <Box marginTop={1}>
-                    <Text dimColor>另有 {hidden} 個 session</Text>
+                    <Button key={`more:${p.cwd}`} plain dimColor onPress={() => unfold(p.cwd, true)}>
+                      另有 {hidden} 個 session ▸
+                    </Button>
+                  </Box>
+                )}
+                {all && (
+                  <Box marginTop={1}>
+                    <Button key={`less:${p.cwd}`} plain dimColor onPress={() => unfold(p.cwd, false)}>
+                      顯示較少 ▴
+                    </Button>
                   </Box>
                 )}
 

@@ -5,6 +5,6 @@ export type TodoProject = { project: string; cwd: string; sessions: TodoSession[
 
 declare module 'claude-code' {
   interface PluginState {
-    'open-todos': { projects: TodoProject[]; error: string; at: number }
+    'open-todos': { projects: TodoProject[]; error: string; gerror: string; at: number; collapsed: string[]; expanded: string[] }
   }
 }

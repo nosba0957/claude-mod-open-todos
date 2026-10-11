@@ -137,4 +137,4 @@ for (const p of result) { p.sessions.sort((a, b) => b.mtime - a.mtime); p.runnin
 const latest = p => Math.max(...p.sessions.map(s => s.mtime), ...p.running.map(s => s.mtime))
 result.sort((a, b) => latest(b) - latest(a))
 try { fs.writeFileSync(cacheFile, JSON.stringify({ version: VERSION, files: next })) } catch {}
-console.log(JSON.stringify(result))
+require('./gtasks').sync(result).then(r => console.log(JSON.stringify(r)))
